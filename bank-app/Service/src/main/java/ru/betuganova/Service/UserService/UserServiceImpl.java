@@ -1,5 +1,7 @@
 package ru.betuganova.Service.UserService;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,6 +10,7 @@ import ru.betuganova.Exception.FriendDoesntExistException;
 import ru.betuganova.Exception.FriendExistsException;
 import ru.betuganova.Exception.UserExistsException;
 import ru.betuganova.Exception.UserFriendException;
+import ru.betuganova.Kafka.MessageProducer;
 import ru.betuganova.Mapper.UserMapper;
 import ru.betuganova.Model.HairColor;
 import ru.betuganova.Model.User;
@@ -26,7 +29,9 @@ import java.util.stream.Collectors;
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final CurrentUserManager currentUserManager;
+    private final MessageProducer messageProducer;
     private final UserMapper userMapper;
+    private final ObjectMapper objectMapper;
 
     /**
      * Constructs a new {@code UserServiceImpl} with the specified repositories and user manager.
@@ -34,10 +39,14 @@ public class UserServiceImpl implements UserService {
      * @param currentUserManager The manager handling the current logged-in user.
      */
     @Autowired
-    public UserServiceImpl(CurrentUserManager currentUserManager, UserRepository userRepository) {
+    public UserServiceImpl(CurrentUserManager currentUserManager,
+                           UserRepository userRepository,
+                           MessageProducer messageProducer) {
         this.userRepository = userRepository;
         this.currentUserManager = currentUserManager;
+        this.messageProducer = messageProducer;
         this.userMapper = new UserMapper(userRepository);
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -101,6 +110,15 @@ public class UserServiceImpl implements UserService {
         UserEntity user = new UserEntity(login, name, age, genderInt, hairColor.toString());
         userRepository.save(user);
 
+        try {
+            messageProducer.sendMessage(
+                    "client-topic",
+                    user.getId().toString(),
+                    objectMapper.writeValueAsString(user));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
         return userMapper.toModel(user);
     }
 
@@ -136,6 +154,15 @@ public class UserServiceImpl implements UserService {
 
             currentUser.addFriend(userRepository.findByLogin(login));
             userRepository.save(currentUser);
+
+            try {
+                messageProducer.sendMessage(
+                        "client-topic",
+                        currentUser.getId().toString(),
+                        objectMapper.writeValueAsString(currentUser));
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
 
         } else {
             throw new FriendExistsException("Friend was already added");

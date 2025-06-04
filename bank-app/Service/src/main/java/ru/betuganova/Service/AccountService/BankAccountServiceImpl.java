@@ -1,10 +1,13 @@
 package ru.betuganova.Service.AccountService;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.betuganova.Entity.UserEntity;
 import ru.betuganova.Exception.NegativeBalanceException;
+import ru.betuganova.Kafka.MessageProducer;
 import ru.betuganova.Mapper.BankAccountMapper;
 import ru.betuganova.Mapper.TransactionMapper;
 import ru.betuganova.Mapper.UserMapper;
@@ -32,9 +35,11 @@ public class BankAccountServiceImpl implements BankAccountService {
     private final UserRepository userRepository;
     private final BankAccountRepository bankAccountRepository;
     private final CurrentUserManager currentUserManager;
+    private final MessageProducer messageProducer;
     private final UserMapper userMapper;
     private final BankAccountMapper bankAccountMapper;
     private final TransactionMapper transactionMapper;
+    private final ObjectMapper objectMapper;
 
     /**
      * Constructs a BankAccountServiceImpl with the required repositories and user manager.
@@ -44,13 +49,16 @@ public class BankAccountServiceImpl implements BankAccountService {
     @Autowired
     public BankAccountServiceImpl(CurrentUserManager currentUserManager,
                                   UserRepository userRepository,
-                                  BankAccountRepository bankAccountRepository) {
+                                  BankAccountRepository bankAccountRepository,
+                                  MessageProducer messageProducer) {
         this.userRepository = userRepository;
         this.bankAccountRepository = bankAccountRepository;
         this.currentUserManager = currentUserManager;
+        this.messageProducer = messageProducer;
         this.userMapper = new UserMapper(userRepository);
         this.bankAccountMapper = new BankAccountMapper();
         this.transactionMapper = new TransactionMapper();
+        this.objectMapper = new ObjectMapper();
     }
 
     /**
@@ -67,6 +75,15 @@ public class BankAccountServiceImpl implements BankAccountService {
 
         BankAccountEntity bankAccount = new BankAccountEntity(balance, user.getId());
         bankAccountRepository.save(bankAccount);
+
+        try {
+            messageProducer.sendMessage(
+                    "account-topic",
+                    bankAccount.getId().toString(),
+                    objectMapper.writeValueAsString(bankAccount));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
 
         return bankAccount.getId();
     }
@@ -131,6 +148,15 @@ public class BankAccountServiceImpl implements BankAccountService {
         bankAccount.addTransaction(transactionMapper.toEntity(transactionDTO));
         bankAccountRepository.save(bankAccount);
 
+        try {
+            messageProducer.sendMessage(
+                    "account-topic",
+                    bankAccount.getId().toString(),
+                    objectMapper.writeValueAsString(bankAccount));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
         return newBalance;
     }
 
@@ -153,6 +179,15 @@ public class BankAccountServiceImpl implements BankAccountService {
         Transaction transactionDTO = new Transaction(TransactionType.REPLENISHMENT, accountId, amount);
         bankAccount.addTransaction(transactionMapper.toEntity(transactionDTO));
         bankAccountRepository.save(bankAccount);
+
+        try {
+            messageProducer.sendMessage(
+                    "account-topic",
+                    bankAccount.getId().toString(),
+                    objectMapper.writeValueAsString(bankAccount));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
 
         return newBalance;
     }
@@ -213,6 +248,20 @@ public class BankAccountServiceImpl implements BankAccountService {
         bankAccountTo.setBalance(balanceTo);
         bankAccountTo.addTransaction(transactionMapper.toEntity(transactionTo));
         bankAccountRepository.save(bankAccountTo);
+
+        try {
+            messageProducer.sendMessage(
+                    "account-topic",
+                    bankAccountFrom.getId().toString(),
+                    objectMapper.writeValueAsString(bankAccountFrom));
+            messageProducer.sendMessage(
+                    "account-topic",
+                    bankAccountTo.getId().toString(),
+                    objectMapper.writeValueAsString(bankAccountTo));
+
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

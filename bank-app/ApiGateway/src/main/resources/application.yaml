@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: api-gateway
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/gateway_postgres
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  port: 8081
+
+jwt:
+  secret: c0f9b342f91c47b785a0a80f4d3d9ea29a1cf27fd019db0b0b3dc6ebc42fb218
+  expiration: 3600000
+
+main-app:
+  url: http://localhost:8080
