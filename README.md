@@ -4,11 +4,12 @@ Account Management System built with Java and the Spring Boot framework. The sys
 
 # Technologies
 
-- **Java 21**, **Spring Boot**, **Spring MVC**, **Spring Data JPA**
+- **Java 21**, **Spring Boot**, **Spring MVC**, **Spring Data JPA**, **Spring Security**
 - **RESTful API** design with strict adherence to REST standards
 - **PostgreSQL** for persistent storage
 - **Flyway** for database migrations
 - **Maven** for project management and build
+- **Kafka** for asynchronous event-driven communication
 - **Docker Compose** for containerization
 - **Swagger** for API documentation
 - **HTTP endpoints** for controllers
@@ -17,6 +18,8 @@ Account Management System built with Java and the Spring Boot framework. The sys
 # Functionality
 
 - Create, view, update user accounts and associated information
+- Role-based access control to restrict sensitive operations
+- Asynchronous event publishing and handling
 - Fetch accounts by userId
 - Retrieve friends of a specific user by userId
 - List all users with filtering by hair color and gender
